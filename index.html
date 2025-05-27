@@ -5,17 +5,171 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Galeria Botànica UAB</title>
     
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
-    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
-    <!-- Custom Styles -->
-    <link rel="stylesheet" href="styles.css">
+    <style>
+        :root {
+            --primary: #2c5530;
+            --primary-dark: #1a3a1d;
+            --secondary: #8bc34a;
+            --accent: #ffc107;
+            --danger: #dc3545;
+            --success: #28a745;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+
+        .gradient-header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        }
+
+        .plant-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .plant-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.15);
+        }
+
+        .modal-backdrop {
+            backdrop-filter: blur(4px);
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .toast {
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .image-thumb {
+            position: relative;
+            overflow: hidden;
+            border-radius: 0.5rem;
+        }
+
+        .image-thumb img {
+            transition: transform 0.3s ease;
+        }
+
+        .image-thumb:hover img {
+            transform: scale(1.1);
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.75rem;
+            background-color: #e5e7eb;
+            color: #1976d2;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            margin: 0.25rem;
+        }
+
+        .tag-remove {
+            cursor: pointer;
+            margin-left: 0.25rem;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .tag-remove:hover {
+            opacity: 1;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .drop-zone {
+            border: 2px dashed #ccc;
+            border-radius: 0.5rem;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .drop-zone.dragover {
+            border-color: var(--primary);
+            background-color: rgba(44, 85, 48, 0.1);
+        }
+
+        .json-preview {
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary: #4a7c4e;
+                --primary-dark: #2c5530;
+                --secondary: #aed581;
+            }
+
+            body {
+                background-color: #111827;
+                color: #e5e7eb;
+            }
+
+            .plant-card {
+                background-color: #1f2937;
+                border-color: #374151;
+            }
+
+            .tag {
+                background-color: #374151;
+                color: #81c784;
+            }
+
+            .json-preview {
+                background-color: #374151;
+                border-color: #4b5563;
+                color: #aed581;
+            }
+
+            input, select, textarea {
+                background-color: #374151;
+                color: #e5e7eb;
+                border-color: #4b5563;
+            }
+
+            ::placeholder {
+                color: #9ca3af;
+            }
+        }
+    </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900">
     <!-- Header -->
@@ -30,7 +184,6 @@
                     </div>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <!-- BOTONS PER AL JSON -->
                     <input type="file" id="jsonFileInput" accept=".json,application/json" class="hidden">
 
                     <button onclick="document.getElementById('jsonFileInput').click()"
@@ -43,12 +196,11 @@
                         <i class="fas fa-folder-open mr-2"></i>Obrir JSON (FS)
                     </button>
 
-                    <button onclick="exportForAutoLoad()" 
+                    <button onclick="exportJSON()" 
                             class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition">
-                        <i class="fas fa-sync-alt mr-2"></i>Actualitzar local
+                        <i class="fas fa-download mr-2"></i>Exportar JSON
                     </button>
 
-                    <!-- BOTÓ NOVA PLANTA -->
                     <button onclick="openPlantModal()" 
                             class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition font-semibold">
                         <i class="fas fa-plus mr-2"></i>Nova Planta
@@ -96,10 +248,10 @@
         </div>
         
         <!-- Empty state -->
-        <div id="emptyState" class="hidden text-center py-12">
+        <div id="emptyState" class="text-center py-12">
             <i class="fas fa-seedling text-6xl text-gray-300 mb-4"></i>
-            <p class="text-xl text-gray-500">No s'han trobat plantes</p>
-            <p class="text-gray-400 mt-2">Prova amb uns altres criteris de cerca</p>
+            <p class="text-xl text-gray-500">Galeria buida</p>
+            <p class="text-gray-400 mt-2">Comença afegint la primera planta</p>
         </div>
     </div>
 
@@ -107,7 +259,7 @@
     <div id="plantModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
         <div class="modal-backdrop fixed inset-0" onclick="closePlantModal()"></div>
         <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden relative">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden relative">
                 <!-- Modal Header -->
                 <div class="gradient-header text-white px-6 py-4 flex justify-between items-center">
                     <h2 id="modalTitle" class="text-2xl font-bold">Nova Planta</h2>
@@ -117,285 +269,60 @@
                 </div>
                 
                 <!-- Modal Body -->
-                <div class="overflow-y-auto max-h-[calc(90vh-8rem)] overscroll-contain">
-                    <form id="plantForm" class="p-6">
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <!-- Left Column -->
-                            <div class="space-y-6">
-                                <!-- Identificació -->
-                                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                                    <h3 class="font-bold text-lg mb-4 text-green-700 dark:text-green-400">
-                                        <i class="fas fa-id-card mr-2"></i>Identificació
-                                    </h3>
-                                    <div class="space-y-4">
-                                        <div>
-                                            <label class="block text-sm font-medium mb-1">Nom comú *</label>
-                                            <input type="text" name="nom_comu" required
-                                                   class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500">
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium mb-1">Nom científic *</label>
-                                            <input type="text" name="nom_cientific" required
-                                                   class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500">
-                                            <p class="text-xs text-gray-500 mt-1">Format binomial (ex: Acer campestre)</p>
-                                        </div>
-                                        <div class="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label class="block text-sm font-medium mb-1">Família</label>
-                                                <input type="text" name="familia" list="familyList"
-                                                       class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500">
-                                                <datalist id="familyList"></datalist>
-                                            </div>
-                                            <div>
-                                                <label class="block text-sm font-medium mb-1">Tipus</label>
-                                                <select name="tipus" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500">
-                                                    <option value="">Selecciona...</option>
-                                                    <option value="arbre">Arbre</option>
-                                                    <option value="arbust">Arbust</option>
-                                                    <option value="herba">Herba</option>
-                                                    <option value="enfiladissa">Enfiladissa</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Hàbitat -->
-                                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                                    <h3 class="font-bold text-lg mb-4 text-green-700 dark:text-green-400">
-                                        <i class="fas fa-tree mr-2"></i>Hàbitat
-                                    </h3>
-                                    <div class="space-y-2">
-                                        <select id="habitatSelect" class="w-full px-3 py-2 border rounded-lg">
-                                            <option value="">Selecciona hàbitat...</option>
-                                            <option value="bosc_mediterrani">Bosc mediterrani</option>
-                                            <option value="zones_enjardinades">Zones enjardinades</option>
-                                            <option value="zones_ombrivoles">Zones ombrívoles</option>
-                                            <option value="cami_ho_chi_minh">Camí Ho Chi Minh</option>
-                                            <option value="eix_central">Eix central</option>
-                                            <option value="torrent_can_domenech">Torrent de Can Domènech</option>
-                                            <option value="vegetacio_ribera">Vegetació de ribera</option>
-                                            <option value="zones_humides">Zones humides</option>
-                                            <option value="murs_edificis">Murs d'edificis</option>
-                                            <option value="custom">+ Afegir personalitzat...</option>
-                                        </select>
-                                        <input type="text" id="habitatCustom" class="hidden w-full px-3 py-2 border rounded-lg" 
-                                               placeholder="Nou hàbitat personalitzat">
-                                        <input type="text" id="habitatClarification" class="w-full px-3 py-2 border rounded-lg" 
-                                               placeholder="Aclariment (opcional)">
-                                        <button type="button" onclick="addHabitat()" 
-                                                class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">
-                                            <i class="fas fa-plus mr-2"></i>Afegir hàbitat
-                                        </button>
-                                        <div id="habitatTags" class="flex flex-wrap gap-2 mt-2"></div>
-                                    </div>
-                                </div>
-
-                                <!-- Característiques -->
-                                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                                    <h3 class="font-bold text-lg mb-4 text-green-700 dark:text-green-400">
-                                        <i class="fas fa-info-circle mr-2"></i>Característiques
-                                    </h3>
-                                    <div class="space-y-4">
-                                        <div>
-                                            <label class="block text-sm font-medium mb-1">Floració</label>
-                                            <div class="grid grid-cols-2 gap-2 mb-2">
-                                                <label class="flex items-center">
-                                                    <input type="checkbox" name="floracio_season" value="primavera" class="mr-2">
-                                                    <span>Primavera</span>
-                                                </label>
-                                                <label class="flex items-center">
-                                                    <input type="checkbox" name="floracio_season" value="estiu" class="mr-2">
-                                                    <span>Estiu</span>
-                                                </label>
-                                                <label class="flex items-center">
-                                                    <input type="checkbox" name="floracio_season" value="tardor" class="mr-2">
-                                                    <span>Tardor</span>
-                                                </label>
-                                                <label class="flex items-center">
-                                                    <input type="checkbox" name="floracio_season" value="hivern" class="mr-2">
-                                                    <span>Hivern</span>
-                                                </label>
-                                            </div>
-                                            <input type="text" id="floracioClarification" class="w-full px-3 py-2 border rounded-lg" 
-                                                   placeholder="Aclariment floració (opcional)">
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium mb-1">Fullatge</label>
-                                            <select name="fullatge" class="w-full px-3 py-2 border rounded-lg">
-                                                <option value="">Selecciona...</option>
-                                                <option value="perenne">Perenne</option>
-                                                <option value="caduc">Caduc</option>
-                                                <option value="semiperenne">Semiperenne</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium mb-1">Alçada</label>
-                                            <input type="text" name="alcada" 
-                                                   class="w-full px-3 py-2 border rounded-lg"
-                                                   placeholder="Ex: 10-15 metres">
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium mb-1">Altres característiques rellevants</label>
-                                            <textarea name="altres_caracteristiques" rows="3"
-                                                      class="w-full px-3 py-2 border rounded-lg"></textarea>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Right Column -->
-                            <div class="space-y-6">
-                                <!-- Colors -->
-                                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                                    <h3 class="font-bold text-lg mb-4 text-green-700 dark:text-green-400">
-                                        <i class="fas fa-palette mr-2"></i>Colors
-                                    </h3>
-                                    <div class="space-y-2">
-                                        <select id="colorSelect" class="w-full px-3 py-2 border rounded-lg">
-                                            <option value="">Selecciona color...</option>
-                                            <option value="blanc">Blanc</option>
-                                            <option value="blau">Blau</option>
-                                            <option value="groc">Groc</option>
-                                            <option value="violeta">Violeta</option>
-                                            <option value="marro">Marró</option>
-                                            <option value="negre">Negre</option>
-                                            <option value="rosa">Rosa</option>
-                                            <option value="taronja">Taronja</option>
-                                            <option value="verd">Verd</option>
-                                            <option value="vermell">Vermell</option>
-                                            <option value="custom">+ Afegir personalitzat...</option>
-                                        </select>
-                                        <input type="text" id="colorCustom" class="hidden w-full px-3 py-2 border rounded-lg" 
-                                               placeholder="Nou color personalitzat">
-                                        <input type="text" id="colorClarification" class="w-full px-3 py-2 border rounded-lg" 
-                                               placeholder="Aclariment (opcional)">
-                                        <button type="button" onclick="addColor()" 
-                                                class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">
-                                            <i class="fas fa-plus mr-2"></i>Afegir color
-                                        </button>
-                                        <div id="colorTags" class="flex flex-wrap gap-2 mt-2"></div>
-                                    </div>
-                                </div>
-
-                                <!-- Usos -->
-                                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                                    <h3 class="font-bold text-lg mb-4 text-green-700 dark:text-green-400">
-                                        <i class="fas fa-hand-holding-heart mr-2"></i>Usos
-                                    </h3>
-                                    <div class="space-y-2">
-                                        <select id="usosSelect" class="w-full px-3 py-2 border rounded-lg">
-                                            <option value="">Selecciona ús...</option>
-                                            <option value="usos_agricoles">Usos agrícoles i millora del sòl</option>
-                                            <option value="usos_agroalimentaris">Usos agroalimentaris</option>
-                                            <option value="usos_artesanals">Usos artesanals / industrials</option>
-                                            <option value="usos_ecologics">Usos ecològics</option>
-                                            <option value="usos_forestals">Usos forestals</option>
-                                            <option value="usos_ornamentals">Usos ornamentals i paisatgístics</option>
-                                            <option value="usos_productius">Usos productius</option>
-                                            <option value="custom">+ Afegir personalitzat...</option>
-                                        </select>
-                                        <input type="text" id="usosCustom" class="hidden w-full px-3 py-2 border rounded-lg" 
-                                               placeholder="Nou ús personalitzat">
-                                        <input type="text" id="usosClarification" class="w-full px-3 py-2 border rounded-lg" 
-                                               placeholder="Aclariment (opcional)">
-                                        <button type="button" onclick="addUso()" 
-                                                class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">
-                                            <i class="fas fa-plus mr-2"></i>Afegir ús
-                                        </button>
-                                        <div id="usosTags" class="flex flex-wrap gap-2 mt-2"></div>
-                                    </div>
-                                </div>
-
-                                <!-- Descripció -->
-                                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                                    <h3 class="font-bold text-lg mb-4 text-green-700 dark:text-green-400">
-                                        <i class="fas fa-align-left mr-2"></i>Descripció
-                                    </h3>
-                                    <textarea name="descripcio" rows="4" 
-                                              class="w-full px-3 py-2 border rounded-lg"
-                                              placeholder="Descripció detallada de la planta..."></textarea>
-                                </div>
-
-                                <!-- Imatges -->
-                                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                                    <h3 class="font-bold text-lg mb-4 text-green-700 dark:text-green-400">
-                                        <i class="fas fa-images mr-2"></i>Imatges
-                                    </h3>
-
-                                    <!-- Resum abans del dropZone -->
-                                    <div id="imagesSummary" class="mb-4 p-3 bg-gray-100 dark:bg-gray-600 rounded-lg">
-                                        <div class="flex justify-between items-center">
-                                            <span class="font-medium">Imatges de la planta:</span>
-                                            <button type="button" onclick="refreshImages()" 
-                                                    class="text-blue-600 hover:text-blue-700 text-sm">
-                                                <i class="fas fa-refresh mr-1"></i>Actualitzar
-                                            </button>
-                                        </div>
-                                        <div id="imagesCount" class="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                                            Cap imatge carregada
-                                        </div>
-                                    </div>
-
-                                    <div id="dropZone" class="drop-zone">
-                                        <!-- Pujar imatges (una o més) -->
-                                        <input type="file"
-                                            id="imageInput"
-                                            multiple
-                                            accept="image/*"
-                                            class="hidden">
-
-                                        <button type="button"
-                                                onclick="document.getElementById('imageInput').click()"
-                                                class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg mt-2">
-                                            <i class="fas fa-image mr-2"></i>Carregar imatge
-                                        </button>
-                                    </div>
-
-                                    <div id="imagePreview" class="grid grid-cols-3 gap-2 mt-4"></div>
-                                </div>
-
-                                <!-- Coordenades -->
-                                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                                    <h3 class="font-bold text-lg mb-4 text-green-700 dark:text-green-400">
-                                        <i class="fas fa-map-marker-alt mr-2"></i>Ubicacions
-                                    </h3>
-                                    <div id="map" style="height: 300px; border-radius: 0.5rem;"></div>
-                                    <p class="text-sm text-gray-500 mt-2">Fes clic al mapa per afegir ubicacions</p>
-                                    <div id="coordinatesList" class="mt-2 space-y-1"></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Fonts -->
-                        <div class="mt-6 bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                <div class="overflow-y-auto max-h-[calc(90vh-8rem)] p-6">
+                    <form id="plantForm" class="space-y-6">
+                        <!-- Identificació -->
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
                             <h3 class="font-bold text-lg mb-4 text-green-700 dark:text-green-400">
-                                <i class="fas fa-link mr-2"></i>Fonts
+                                <i class="fas fa-id-card mr-2"></i>Identificació
                             </h3>
-                            <div id="fontsContainer" class="space-y-2">
-                                <div class="flex gap-2">
-                                    <input type="url" class="flex-1 px-3 py-2 border rounded-lg" 
-                                           placeholder="https://exemple.com/font">
-                                    <button type="button" onclick="addFont(this)" 
-                                            class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">
-                                        <i class="fas fa-plus"></i>
-                                    </button>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">Nom comú *</label>
+                                    <input type="text" name="nom_comu" required
+                                           class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">Nom científic *</label>
+                                    <input type="text" name="nom_cientific" required
+                                           class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">Família</label>
+                                    <input type="text" name="familia"
+                                           class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">Tipus</label>
+                                    <select name="tipus" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500">
+                                        <option value="">Selecciona...</option>
+                                        <option value="arbre">Arbre</option>
+                                        <option value="arbust">Arbust</option>
+                                        <option value="herba">Herba</option>
+                                        <option value="enfiladissa">Enfiladissa</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- JSON Preview -->
-                        <div class="mt-6">
-                            <div class="flex justify-between items-center mb-2">
-                                <h3 class="font-bold text-lg text-green-700 dark:text-green-400">
-                                    <i class="fas fa-code mr-2"></i>Previsualització JSON
-                                </h3>
-                                <button type="button" onclick="toggleJSONPreview()" 
-                                        class="text-sm text-blue-600 hover:text-blue-700">
-                                    <i class="fas fa-eye mr-1"></i>Mostrar/Ocultar
-                                </button>
-                            </div>
-                            <pre id="jsonPreview" class="json-preview hidden"></pre>
+                        <!-- Descripció -->
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                            <h3 class="font-bold text-lg mb-4 text-green-700 dark:text-green-400">
+                                <i class="fas fa-align-left mr-2"></i>Descripció
+                            </h3>
+                            <textarea name="descripcio" rows="4" 
+                                      class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                                      placeholder="Descripció detallada de la planta..."></textarea>
+                        </div>
+
+                        <!-- Mapa -->
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                            <h3 class="font-bold text-lg mb-4 text-green-700 dark:text-green-400">
+                                <i class="fas fa-map-marker-alt mr-2"></i>Ubicació
+                            </h3>
+                            <div id="map" style="height: 300px; border-radius: 0.5rem;"></div>
+                            <p class="text-sm text-gray-500 mt-2">Fes clic al mapa per afegir una ubicació</p>
+                            <div id="coordinatesList" class="mt-2 space-y-1"></div>
                         </div>
                     </form>
                 </div>
@@ -403,23 +330,13 @@
                 <!-- Modal Footer -->
                 <div class="border-t px-6 py-4 flex justify-between items-center bg-gray-50 dark:bg-gray-700">
                     <button type="button" onclick="closePlantModal()" 
-                            class="px-4 py-2 text-gray-700 hover:text-gray-900">
+                            class="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900">
                         Cancel·lar
                     </button>
-                    <div class="flex gap-2">
-                        <button type="button" onclick="savePlant(true)" 
-                                class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">
-                            <i class="fas fa-save mr-2"></i>Desar esborrany
-                        </button>
-                        <button type="button" onclick="savePlant()" 
-                                class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold">
-                            <i class="fas fa-check mr-2"></i>Desar planta
-                        </button>
-                        <button type="button" onclick="exportImageRenameList()" 
-                                class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg">
-                            <i class="fas fa-download mr-2"></i>Exportar canvis d'imatges
-                        </button>
-                    </div>
+                    <button type="button" onclick="savePlant()" 
+                            class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold">
+                        <i class="fas fa-check mr-2"></i>Desar planta
+                    </button>
                 </div>
             </div>
         </div>
@@ -430,25 +347,18 @@
 
     <!-- Delete Confirmation Modal -->
     <div id="deleteModal" class="hidden fixed inset-0 z-50">
-        <!-- backdrop: z-40 (rep els clics fora del diàleg) -->
-        <div class="modal-backdrop fixed inset-0 z-40"
-            onclick="closeDeleteModal()"></div>
-
-        <!-- contenidor del diàleg: z-50 (per sobre del backdrop) -->
-        <div class="flex items-center justify-center min-h-screen p-4 relative z-50">
+        <div class="modal-backdrop fixed inset-0" onclick="closeDeleteModal()"></div>
+        <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6">
                 <div class="text-center">
                     <i class="fas fa-exclamation-triangle text-5xl text-red-500 mb-4"></i>
                     <h3 class="text-2xl font-bold mb-2">Eliminar planta?</h3>
                     <p class="text-gray-600 dark:text-gray-400 mb-6">
-                        Aquesta acció no es pot desfer. S'eliminaran totes les dades i imatges associades.
+                        Aquesta acció no es pot desfer.
                     </p>
-
                     <div class="flex justify-center gap-4">
                         <button onclick="closeDeleteModal()"
-                                class="px-6 py-2 rounded-lg
-                                    bg-gray-200  text-gray-800  hover:bg-gray-300
-                                    dark:bg-gray-600 dark:text-gray-100 dark:hover:bg-gray-500">
+                                class="px-6 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300">
                             Cancel·lar
                         </button>
                         <button onclick="confirmDelete()"
@@ -461,10 +371,405 @@
         </div>
     </div>
 
-    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
-    <!-- Application JavaScript -->
-    <script src="script.js"></script>
+    <script>
+        // Global variables
+        let plantsData = [];
+        let currentPlantId = null;
+        let map = null;
+        let markers = [];
+        let plantToDelete = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+            initializeMap();
+            loadInitialData();
+            
+            // File System API support
+            if ('showOpenFilePicker' in window) {
+                document.getElementById('openJsonFS').classList.remove('hidden');
+                document.getElementById('openJsonFS').addEventListener('click', openFileSystemJSON);
+            }
+        });
+
+        function setupEventListeners() {
+            document.getElementById('searchInput').addEventListener('input', filterPlants);
+            document.getElementById('filterFamily').addEventListener('change', filterPlants);
+            document.getElementById('filterType').addEventListener('change', filterPlants);
+            document.getElementById('jsonFileInput').addEventListener('change', handleJSONFile);
+        }
+
+        async function loadInitialData() {
+            showLoading(true);
+            
+            // Crear dades d'exemple per demostració
+            plantsData = [
+                {
+                    id: "oliver",
+                    nom_comu: "Oliver",
+                    nom_cientific: "Olea europaea",
+                    familia: "Oleaceae",
+                    tipus: "arbre",
+                    descripcio: "Arbre mediterrani emblemàtic, de fulles perennes i fruits comestibles.",
+                    coordenades: [{ lat: 41.500833, lng: 2.107222 }]
+                },
+                {
+                    id: "pi_blanc",
+                    nom_comu: "Pi blanc",
+                    nom_cientific: "Pinus halepensis",
+                    familia: "Pinaceae",
+                    tipus: "arbre",
+                    descripcio: "Conífera típica del mediterrani, molt resistent a la sequera.",
+                    coordenades: [{ lat: 41.501000, lng: 2.107500 }]
+                },
+                {
+                    id: "rosella",
+                    nom_comu: "Rosella",
+                    nom_cientific: "Nerium oleander",
+                    familia: "Apocynaceae",
+                    tipus: "arbust",
+                    descripcio: "Arbust ornamental de flors vistoses, tòxic però molt decoratiu.",
+                    coordenades: [{ lat: 41.500500, lng: 2.106800 }]
+                }
+            ];
+            
+            displayPlants(plantsData);
+            updateFilters();
+            showLoading(false);
+            showToast('Galeria carregada amb dades d\'exemple', 'success');
+        }
+
+        async function openFileSystemJSON() {
+            try {
+                const [fileHandle] = await window.showOpenFilePicker({
+                    types: [{ accept: { 'application/json': ['.json'] } }],
+                    excludeAcceptAllOption: true,
+                    multiple: false
+                });
+
+                const file = await fileHandle.getFile();
+                const text = await file.text();
+                let data = JSON.parse(text);
+                
+                if (!Array.isArray(data)) {
+                    if (Array.isArray(data.plantes)) data = data.plantes;
+                    else if (Array.isArray(data.data)) data = data.data;
+                }
+
+                if (!Array.isArray(data)) {
+                    showToast('El JSON no té el format esperat', 'error');
+                    return;
+                }
+
+                plantsData = data;
+                displayPlants(plantsData);
+                updateFilters();
+                showToast('Fitxer JSON carregat correctament', 'success');
+            } catch (err) {
+                console.error(err);
+                showToast('No s\'ha pogut obrir el fitxer', 'error');
+            }
+        }
+
+        async function handleJSONFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            try {
+                const text = await file.text();
+                let data = JSON.parse(text);
+
+                if (!Array.isArray(data)) {
+                    if (Array.isArray(data.plantes)) data = data.plantes;
+                    else if (Array.isArray(data.data)) data = data.data;
+                }
+
+                if (!Array.isArray(data)) {
+                    showToast('El JSON no té el format esperat', 'error');
+                    return;
+                }
+
+                plantsData = data;
+                displayPlants(plantsData);
+                updateFilters();
+                showToast('Fitxer JSON importat correctament', 'success');
+            } catch (err) {
+                console.error(err);
+                showToast('Error llegint el fitxer JSON', 'error');
+            }
+        }
+
+        function displayPlants(plants) {
+            const grid = document.getElementById('plantsGrid');
+            const emptyState = document.getElementById('emptyState');
+            
+            if (plants.length === 0) {
+                grid.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            
+            emptyState.classList.add('hidden');
+            grid.innerHTML = plants.map(plant => createPlantCard(plant)).join('');
+        }
+
+        function createPlantCard(plant) {
+            return `
+                <div class="plant-card bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden">
+                    <div class="h-48 bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center">
+                        <i class="fas fa-leaf text-6xl text-white/80"></i>
+                    </div>
+                    <div class="p-4">
+                        <h3 class="font-bold text-lg mb-1">${plant.nom_comu}</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 italic mb-2">${plant.nom_cientific}</p>
+                        <p class="text-sm text-gray-500 mb-3">
+                            <i class="fas fa-sitemap mr-1"></i>${plant.familia || 'Sense família'}
+                        </p>
+                        <div class="flex justify-between items-center mt-4">
+                            <span class="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded-full text-xs font-semibold">
+                                ${plant.tipus || 'planta'}
+                            </span>
+                            <div class="flex gap-2">
+                                <button onclick="editPlant('${plant.id}')" 
+                                        class="text-blue-600 hover:text-blue-700 p-2">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="deletePlant('${plant.id}')" 
+                                        class="text-red-600 hover:text-red-700 p-2">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function filterPlants() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const familyFilter = document.getElementById('filterFamily').value;
+            const typeFilter = document.getElementById('filterType').value;
+            
+            const filtered = plantsData.filter(plant => {
+                const matchesSearch = !searchTerm || 
+                    plant.nom_comu.toLowerCase().includes(searchTerm) ||
+                    plant.nom_cientific.toLowerCase().includes(searchTerm) ||
+                    (plant.familia && plant.familia.toLowerCase().includes(searchTerm));
+                
+                const matchesFamily = !familyFilter || plant.familia === familyFilter;
+                const matchesType = !typeFilter || plant.tipus === typeFilter;
+                
+                return matchesSearch && matchesFamily && matchesType;
+            });
+            
+            displayPlants(filtered);
+        }
+
+        function updateFilters() {
+            const families = [...new Set(plantsData.map(p => p.familia).filter(Boolean))];
+            const familySelect = document.getElementById('filterFamily');
+            
+            familySelect.innerHTML = '<option value="">Totes les famílies</option>' +
+                families.sort().map(f => `<option value="${f}">${f}</option>`).join('');
+        }
+
+        function openPlantModal(plantId = null) {
+            currentPlantId = plantId;
+            const modal = document.getElementById('plantModal');
+            const form = document.getElementById('plantForm');
+            const title = document.getElementById('modalTitle');
+            
+            form.reset();
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
+            updateCoordinatesList();
+            
+            if (plantId) {
+                title.textContent = 'Editar Planta';
+                const plant = plantsData.find(p => p.id === plantId);
+                if (plant) {
+                    populateForm(plant);
+                }
+            } else {
+                title.textContent = 'Nova Planta';
+                map.setView([41.500833, 2.107222], 15);
+            }
+            
+            modal.classList.remove('hidden');
+            setTimeout(() => map.invalidateSize(), 100);
+        }
+
+        function populateForm(plant) {
+            const form = document.getElementById('plantForm');
+            
+            form.nom_comu.value = plant.nom_comu || '';
+            form.nom_cientific.value = plant.nom_cientific || '';
+            form.familia.value = plant.familia || '';
+            form.tipus.value = plant.tipus || '';
+            form.descripcio.value = plant.descripcio || '';
+            
+            if (plant.coordenades && plant.coordenades.length > 0) {
+                plant.coordenades.forEach(coord => {
+                    const marker = L.marker([coord.lat, coord.lng]).addTo(map);
+                    markers.push(marker);
+                });
+                map.setView([plant.coordenades[0].lat, plant.coordenades[0].lng], 15);
+                updateCoordinatesList();
+            }
+        }
+
+        function closePlantModal() {
+            document.getElementById('plantModal').classList.add('hidden');
+            currentPlantId = null;
+        }
+
+        function savePlant() {
+            const form = document.getElementById('plantForm');
+            const formData = new FormData(form);
+            
+            if (!formData.get('nom_comu') || !formData.get('nom_cientific')) {
+                showToast('Els camps nom comú i nom científic són obligatoris', 'error');
+                return;
+            }
+            
+            const plant = {
+                id: formData.get('nom_comu').toLowerCase()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .replace(/\s+/g, '_'),
+                nom_comu: formData.get('nom_comu'),
+                nom_cientific: formData.get('nom_cientific'),
+                familia: formData.get('familia'),
+                tipus: formData.get('tipus'),
+                descripcio: formData.get('descripcio'),
+                coordenades: markers.map(marker => {
+                    const latlng = marker.getLatLng();
+                    return { lat: latlng.lat, lng: latlng.lng };
+                })
+            };
+            
+            if (currentPlantId) {
+                const idx = plantsData.findIndex(p => p.id === currentPlantId);
+                if (idx !== -1) plantsData[idx] = plant;
+            } else {
+                plantsData.push(plant);
+            }
+            
+            closePlantModal();
+            displayPlants(plantsData);
+            updateFilters();
+            showToast('Planta desada correctament', 'success');
+        }
+
+        function editPlant(plantId) {
+            openPlantModal(plantId);
+        }
+
+        function deletePlant(plantId) {
+            plantToDelete = plantId;
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.add('hidden');
+            plantToDelete = null;
+        }
+
+        function confirmDelete() {
+            if (!plantToDelete) return;
+            
+            plantsData = plantsData.filter(p => p.id !== plantToDelete);
+            displayPlants(plantsData);
+            updateFilters();
+            showToast('Planta eliminada correctament', 'success');
+            closeDeleteModal();
+        }
+
+        function initializeMap() {
+            map = L.map('map').setView([41.500833, 2.107222], 15);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            map.on('click', e => {
+                markers.forEach(m => map.removeLayer(m)); // Solo una ubicación
+                markers = [];
+                
+                const marker = L.marker([e.latlng.lat, e.latlng.lng]).addTo(map);
+                markers.push(marker);
+                updateCoordinatesList();
+            });
+        }
+
+        function updateCoordinatesList() {
+            const container = document.getElementById('coordinatesList');
+            container.innerHTML = markers.map((marker, index) => {
+                const latlng = marker.getLatLng();
+                return `
+                    <div class="flex justify-between items-center text-sm bg-gray-100 dark:bg-gray-600 px-2 py-1 rounded">
+                        <span>${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}</span>
+                        <button onclick="removeMarker(${index})" class="text-red-500 hover:text-red-700 ml-2">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function removeMarker(index) {
+            map.removeLayer(markers[index]);
+            markers.splice(index, 1);
+            updateCoordinatesList();
+        }
+
+        function exportJSON() {
+            const dataStr = JSON.stringify(plantsData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `plantes-${new Date().toISOString().slice(0,10)}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            showToast('JSON exportat correctament', 'success');
+        }
+
+        function showToast(message, type = 'info', duration = 5000) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 min-w-[300px] flex items-center gap-3`;
+            
+            const icon = {
+                success: 'fa-check-circle text-green-500',
+                error: 'fa-exclamation-circle text-red-500',
+                info: 'fa-info-circle text-blue-500'
+            }[type] || 'fa-info-circle text-blue-500';
+            
+            toast.innerHTML = `
+                <i class="fas ${icon} text-xl"></i>
+                <span class="flex-1">${message}</span>
+                <button onclick="this.parentElement.remove()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+
+        function showLoading(show) {
+            document.getElementById('loadingIndicator').classList.toggle('hidden', !show);
+        }
+    </script>
 </body>
 </html>
