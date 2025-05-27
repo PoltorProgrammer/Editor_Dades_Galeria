@@ -3,7 +3,7 @@
 Catàleg interactiu de plantes del campus de la Universitat Autònoma de Barcelona.
 
 ## 🚀 Enllaç directe
-👉 **[Obrir l'aplicació](https://TU_USUARI.github.io/galeria-botanica-uab/)**
+👉 **[Obrir l'aplicació](https://poltorprogrammer.github.io/Editor_Dades_Galeria/)**
 
 ## ✨ Funcionalitats
 
