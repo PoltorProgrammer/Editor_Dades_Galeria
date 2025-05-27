@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galeria Botànica UAB</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-gray-50 dark:bg-gray-900">
+    <!-- Header -->
+    <header class="gradient-header text-white shadow-lg">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <i class="fas fa-leaf text-4xl text-green-300"></i>
+                    <div>
+                        <h1 class="text-3xl font-bold">Galeria Botànica UAB</h1>
+                        <p class="text-green-200 text-sm">Catàleg de plantes del campus</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <!-- BOTÓ NOVA PLANTA -->
+                    <button onclick="openPlantModal()" 
+                            class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition font-semibold">
+                        <i class="fas fa-plus mr-2"></i>Nova Planta
+                    </button>
+
+                    <!-- BOTONS PER AL JSON -->
+                    <input type="file" id="jsonFileInput" accept=".json,application/json" class="hidden">
+
+                    <button
+                    onclick="document.getElementById('jsonFileInput').click()"
+                    class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition">
+                    <i class="fas fa-file-upload mr-2"></i>Importar JSON
+                    </button>
+
+                    <button id="openJsonFS"
+                    class="hidden bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition">
+                    <i class="fas fa-folder-open mr-2"></i>Obrir JSON (FS)
+                    </button>
+                    <!-- Afegir aquest botó al header, just abans del botó "Nova Planta" -->
+                     <button onclick="exportForAutoLoad()" 
+                            class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition">
+                        <i class="fas fa-sync-alt mr-2"></i>Actualitzar local
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Search and Filters -->
+    <div class="container mx-auto px-4 py-6">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="md:col-span-2">
+                    <div class="relative">
+                        <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                        <input type="text" id="searchInput" placeholder="Cercar per nom comú, científic o família..." 
+                               class="w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                    </div>
+                </div>
+                <select id="filterFamily" class="px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500">
+                    <option value="">Totes les famílies</option>
+                </select>
+                <select id="filterType" class="px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500">
+                    <option value="">Tots els tipus</option>
+                    <option value="arbre">Arbre</option>
+                    <option value="arbust">Arbust</option>
+                    <option value="herba">Herba</option>
+                    <option value="enfiladissa">Enfiladissa</option>
+                </select>
+            </div>
+            <div class="mt-4 flex flex-wrap gap-2" id="activeFilters"></div>
+        </div>
+    </div>
+
+    <!-- Plants Grid -->
+    <div class="container mx-auto px-4 pb-8">
+        <div id="plantsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <!-- Plant cards will be dynamically inserted here -->
+        </div>
+        
+        <!-- Loading indicator -->
+        <div id="loadingIndicator" class="hidden flex justify-center py-12">
+            <div class="spinner"></div>
+        </div>
+        
+        <!-- Empty state -->
+        <div id="emptyState" class="hidden text-center py-12">
+            <i class="fas fa-seedling text-6xl text-gray-300 mb-4"></i>
+            <p class="text-xl text-gray-500">No s'han trobat plantes</p>
+            <p class="text-gray-400 mt-2">Prova amb uns altres criteris de cerca</p>
+        </div>
+    </div>
+
+    <!-- Plant Modal -->
+    <div id="plantModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+        <div class="modal-backdrop fixed inset-0" onclick="closePlantModal()"></div>
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden relative">
+                <!-- Modal Header -->
+                <div class="gradient-header text-white px-6 py-4 flex justify-between items-center">
+                    <h2 id="modalTitle" class="text-2xl font-bold">Nova Planta</h2>
+                    <button onclick="closePlantModal()" class="text-white/80 hover:text-white text-2xl">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <!-- Modal Body -->
+                <div class="overflow-y-auto max-h-[calc(90vh-8rem)] overscroll-contain">
+                    <form id="plantForm" class="p-6">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <!-- Left Column -->
+                            <div class="space-y-6">
+                                <!-- Identificació -->
+                                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                                    <h3 class="font-bold text-lg mb-4 text-green-700 dark:text-green-400">
+                                        <i class="fas fa-id-card mr-2"></i>Identificació
+                                    </h3>
+                                    <div class="space-y-4">
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">Nom comú *</label>
+                                            <input type="text" name="nom_comu" required
+                                                   class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">Nom científic *</label>
+                                            <input type="text" name="nom_cientific" required
+                                                   class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500">
+                                            <p class="text-xs text-gray-500 mt-1">Format binomial (ex: Acer campestre)</p>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label class="block text-sm font-medium mb-1">Família</label>
+                                                <input type="text" name="familia" list="familyList"
+                                                       class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500">
+                                                <datalist id="familyList"></datalist>
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium mb-1">Tipus</label>
+                                                <select name="tipus" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500">
+                                                    <option value="">Selecciona...</option>
+                                                    <option value="arbre">Arbre</option>
+                                                    <option value="arbust">Arbust</option>
+                                                    <option value="herba">Herba</option>
+                                                    <option value="enfiladissa">Enfiladissa</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Hàbitat -->
+                                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                                    <h3 class="font-bold text-lg mb-4 text-green-700 dark:text-green-400">
+                                        <i class="fas fa-tree mr-2"></i>Hàbitat
+                                    </h3>
+                                    <div class="space-y-2">
+                                        <select id="habitatSelect" class="w-full px-3 py-2 border rounded-lg">
+                                            <option value="">Selecciona hàbitat...</option>
+                                            <option value="bosc_mediterrani">Bosc mediterrani</option>
+                                            <option value="zones_enjardinades">Zones enjardinades</option>
+                                            <option value="zones_ombrivoles">Zones ombrívoles</option>
+                                            <option value="cami_ho_chi_minh">Camí Ho Chi Minh</option>
+                                            <option value="eix_central">Eix central</option>
+                                            <option value="torrent_can_domenech">Torrent de Can Domènech</option>
+                                            <option value="vegetacio_ribera">Vegetació de ribera</option>
+                                            <option value="zones_humides">Zones humides</option>
+                                            <option value="murs_edificis">Murs d'edificis</option>
+                                            <option value="custom">+ Afegir personalitzat...</option>
+                                        </select>
+                                        <input type="text" id="habitatCustom" class="hidden w-full px-3 py-2 border rounded-lg" 
+                                               placeholder="Nou hàbitat personalitzat">
+                                        <input type="text" id="habitatClarification" class="w-full px-3 py-2 border rounded-lg" 
+                                               placeholder="Aclariment (opcional)">
+                                        <button type="button" onclick="addHabitat()" 
+                                                class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">
+                                            <i class="fas fa-plus mr-2"></i>Afegir hàbitat
+                                        </button>
+                                        <div id="habitatTags" class="flex flex-wrap gap-2 mt-2"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Característiques -->
+                                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                                    <h3 class="font-bold text-lg mb-4 text-green-700 dark:text-green-400">
+                                        <i class="fas fa-info-circle mr-2"></i>Característiques
+                                    </h3>
+                                    <div class="space-y-4">
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">Floració</label>
+                                            <div class="grid grid-cols-2 gap-2 mb-2">
+                                                <label class="flex items-center">
+                                                    <input type="checkbox" name="floracio_season" value="primavera" class="mr-2">
+                                                    <span>Primavera</span>
+                                                </label>
+                                                <label class="flex items-center">
+                                                    <input type="checkbox" name="floracio_season" value="estiu" class="mr-2">
+                                                    <span>Estiu</span>
+                                                </label>
+                                                <label class="flex items-center">
+                                                    <input type="checkbox" name="floracio_season" value="tardor" class="mr-2">
+                                                    <span>Tardor</span>
+                                                </label>
+                                                <label class="flex items-center">
+                                                    <input type="checkbox" name="floracio_season" value="hivern" class="mr-2">
+                                                    <span>Hivern</span>
+                                                </label>
+                                            </div>
+                                            <input type="text" id="floracioClarification" class="w-full px-3 py-2 border rounded-lg" 
+                                                   placeholder="Aclariment floració (opcional)">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">Fullatge</label>
+                                            <select name="fullatge" class="w-full px-3 py-2 border rounded-lg">
+                                                <option value="">Selecciona...</option>
+                                                <option value="perenne">Perenne</option>
+                                                <option value="caduc">Caduc</option>
+                                                <option value="semiperenne">Semiperenne</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">Alçada</label>
+                                            <input type="text" name="alcada" 
+                                                   class="w-full px-3 py-2 border rounded-lg"
+                                                   placeholder="Ex: 10-15 metres">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">Altres característiques rellevants</label>
+                                            <textarea name="altres_caracteristiques" rows="3"
+                                                      class="w-full px-3 py-2 border rounded-lg"></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Right Column -->
+                            <div class="space-y-6">
+                                <!-- Colors -->
+                                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                                    <h3 class="font-bold text-lg mb-4 text-green-700 dark:text-green-400">
+                                        <i class="fas fa-palette mr-2"></i>Colors
+                                    </h3>
+                                    <div class="space-y-2">
+                                        <select id="colorSelect" class="w-full px-3 py-2 border rounded-lg">
+                                            <option value="">Selecciona color...</option>
+                                            <option value="blanc">Blanc</option>
+                                            <option value="blau">Blau</option>
+                                            <option value="groc">Groc</option>
+                                            <option value="violeta">Violeta</option>
+                                            <option value="marro">Marró</option>
+                                            <option value="negre">Negre</option>
+                                            <option value="rosa">Rosa</option>
+                                            <option value="taronja">Taronja</option>
+                                            <option value="verd">Verd</option>
+                                            <option value="vermell">Vermell</option>
+                                            <option value="custom">+ Afegir personalitzat...</option>
+                                        </select>
+                                        <input type="text" id="colorCustom" class="hidden w-full px-3 py-2 border rounded-lg" 
+                                               placeholder="Nou color personalitzat">
+                                        <input type="text" id="colorClarification" class="w-full px-3 py-2 border rounded-lg" 
+                                               placeholder="Aclariment (opcional)">
+                                        <button type="button" onclick="addColor()" 
+                                                class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">
+                                            <i class="fas fa-plus mr-2"></i>Afegir color
+                                        </button>
+                                        <div id="colorTags" class="flex flex-wrap gap-2 mt-2"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Usos -->
+                                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                                    <h3 class="font-bold text-lg mb-4 text-green-700 dark:text-green-400">
+                                        <i class="fas fa-hand-holding-heart mr-2"></i>Usos
+                                    </h3>
+                                    <div class="space-y-2">
+                                        <select id="usosSelect" class="w-full px-3 py-2 border rounded-lg">
+                                            <option value="">Selecciona ús...</option>
+                                            <option value="usos_agricoles">Usos agrícoles i millora del sòl</option>
+                                            <option value="usos_agroalimentaris">Usos agroalimentaris</option>
+                                            <option value="usos_artesanals">Usos artesanals / industrials</option>
+                                            <option value="usos_ecologics">Usos ecològics</option>
+                                            <option value="usos_forestals">Usos forestals</option>
+                                            <option value="usos_ornamentals">Usos ornamentals i paisatgístics</option>
+                                            <option value="usos_productius">Usos productius</option>
+                                            <option value="custom">+ Afegir personalitzat...</option>
+                                        </select>
+                                        <input type="text" id="usosCustom" class="hidden w-full px-3 py-2 border rounded-lg" 
+                                               placeholder="Nou ús personalitzat">
+                                        <input type="text" id="usosClarification" class="w-full px-3 py-2 border rounded-lg" 
+                                               placeholder="Aclariment (opcional)">
+                                        <button type="button" onclick="addUso()" 
+                                                class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">
+                                            <i class="fas fa-plus mr-2"></i>Afegir ús
+                                        </button>
+                                        <div id="usosTags" class="flex flex-wrap gap-2 mt-2"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Descripció -->
+                                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                                    <h3 class="font-bold text-lg mb-4 text-green-700 dark:text-green-400">
+                                        <i class="fas fa-align-left mr-2"></i>Descripció
+                                    </h3>
+                                    <textarea name="descripcio" rows="4" 
+                                              class="w-full px-3 py-2 border rounded-lg"
+                                              placeholder="Descripció detallada de la planta..."></textarea>
+                                </div>
+
+                                <!-- Imatges -->
+                                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                                    <h3 class="font-bold text-lg mb-4 text-green-700 dark:text-green-400">
+                                        <i class="fas fa-images mr-2"></i>Imatges
+                                    </h3>
+
+                                    <!-- Resum abans del dropZone -->
+                                    <div id="imagesSummary" class="mb-4 p-3 bg-gray-100 dark:bg-gray-600 rounded-lg">
+                                        <div class="flex justify-between items-center">
+                                            <span class="font-medium">Imatges de la planta:</span>
+                                            <button type="button" onclick="refreshImages()" 
+                                                    class="text-blue-600 hover:text-blue-700 text-sm">
+                                                <i class="fas fa-refresh mr-1"></i>Actualitzar
+                                            </button>
+                                        </div>
+                                        <div id="imagesCount" class="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                                            Cap imatge carregada
+                                        </div>
+                                    </div>
+
+                                    <div id="dropZone" class="drop-zone">
+                                        <!-- Pujar imatges (una o més) -->
+                                        <input type="file"
+                                            id="imageInput"
+                                            multiple
+                                            accept="image/*"
+                                            class="hidden">
+
+                                        <button type="button"
+                                                onclick="document.getElementById('imageInput').click()"
+                                                class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg mt-2">
+                                            <i class="fas fa-image mr-2"></i>Carregar imatge
+                                        </button>
+                                    </div>
+
+                                    <div id="imagePreview" class="grid grid-cols-3 gap-2 mt-4"></div>
+                                </div>
+
+                                <!-- Coordenades -->
+                                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                                    <h3 class="font-bold text-lg mb-4 text-green-700 dark:text-green-400">
+                                        <i class="fas fa-map-marker-alt mr-2"></i>Ubicacions
+                                    </h3>
+                                    <div id="map" style="height: 300px; border-radius: 0.5rem;"></div>
+                                    <p class="text-sm text-gray-500 mt-2">Fes clic al mapa per afegir ubicacions</p>
+                                    <div id="coordinatesList" class="mt-2 space-y-1"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Fonts -->
+                        <div class="mt-6 bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                            <h3 class="font-bold text-lg mb-4 text-green-700 dark:text-green-400">
+                                <i class="fas fa-link mr-2"></i>Fonts
+                            </h3>
+                            <div id="fontsContainer" class="space-y-2">
+                                <div class="flex gap-2">
+                                    <input type="url" class="flex-1 px-3 py-2 border rounded-lg" 
+                                           placeholder="https://exemple.com/font">
+                                    <button type="button" onclick="addFont(this)" 
+                                            class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- JSON Preview -->
+                        <div class="mt-6">
+                            <div class="flex justify-between items-center mb-2">
+                                <h3 class="font-bold text-lg text-green-700 dark:text-green-400">
+                                    <i class="fas fa-code mr-2"></i>Previsualització JSON
+                                </h3>
+                                <button type="button" onclick="toggleJSONPreview()" 
+                                        class="text-sm text-blue-600 hover:text-blue-700">
+                                    <i class="fas fa-eye mr-1"></i>Mostrar/Ocultar
+                                </button>
+                            </div>
+                            <pre id="jsonPreview" class="json-preview hidden"></pre>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- Modal Footer -->
+                <div class="border-t px-6 py-4 flex justify-between items-center bg-gray-50 dark:bg-gray-700">
+                    <button type="button" onclick="closePlantModal()" 
+                            class="px-4 py-2 text-gray-700 hover:text-gray-900">
+                        Cancel·lar
+                    </button>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="savePlant(true)" 
+                                class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">
+                            <i class="fas fa-save mr-2"></i>Desar esborrany
+                        </button>
+                        <button type="button" onclick="savePlant()" 
+                                class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold">
+                            <i class="fas fa-check mr-2"></i>Desar planta
+                        </button>
+                        <button type="button" onclick="exportImageRenameList()" 
+                                class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg">
+                            <i class="fas fa-download mr-2"></i>Exportar canvis d'imatges
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="hidden fixed inset-0 z-50">
+        <!-- backdrop: z-40 (rep els clics fora del diàleg) -->
+        <div class="modal-backdrop fixed inset-0 z-40"
+            onclick="closeDeleteModal()"></div>
+
+        <!-- contenidor del diàleg: z-50 (per sobre del backdrop) -->
+        <div class="flex items-center justify-center min-h-screen p-4 relative z-50">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6">
+                <div class="text-center">
+                    <i class="fas fa-exclamation-triangle text-5xl text-red-500 mb-4"></i>
+                    <h3 class="text-2xl font-bold mb-2">Eliminar planta?</h3>
+                    <p class="text-gray-600 dark:text-gray-400 mb-6">
+                        Aquesta acció no es pot desfer. S'eliminaran totes les dades i imatges associades.
+                    </p>
+
+                    <div class="flex justify-center gap-4">
+                        <button onclick="closeDeleteModal()"
+                                class="px-6 py-2 rounded-lg
+                                    bg-gray-200  text-gray-800  hover:bg-gray-300
+                                    dark:bg-gray-600 dark:text-gray-100 dark:hover:bg-gray-500">
+                            Cancel·lar
+                        </button>
+                        <button onclick="confirmDelete()"
+                                class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold">
+                            Eliminar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Application JavaScript -->
+    <script src="script.js"></script>
+</body>
+</html>

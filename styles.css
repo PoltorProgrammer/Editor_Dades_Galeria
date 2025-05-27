@@ -1,0 +1,189 @@
+:root {
+    --primary: #2c5530;
+    --primary-dark: #1a3a1d;
+    --secondary: #8bc34a;
+    --accent: #ffc107;
+    --danger: #dc3545;
+    --success: #28a745;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.gradient-header {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+}
+
+.plant-card {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.plant-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0,0,0,0.15);
+}
+
+.modal-backdrop {
+    backdrop-filter: blur(4px);
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.toast {
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.image-thumb {
+    position: relative;
+    overflow: hidden;
+    border-radius: 0.5rem;
+}
+
+.image-thumb img {
+    transition: transform 0.3s ease;
+}
+
+.image-thumb:hover img {
+    transform: scale(1.1);
+}
+
+.tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.75rem;
+    background-color: #878e93;
+    color: #1976d2;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    margin: 0.25rem;
+}
+
+.tag-remove {
+    cursor: pointer;
+    margin-left: 0.25rem;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.tag-remove:hover {
+    opacity: 1;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --primary: #4a7c4e;
+        --primary-dark: #2c5530;
+        --secondary: #aed581;
+    }
+
+    body {
+        background-color: #121212;
+        color: #e0e0e0;
+    }
+
+    .plant-card {
+        background-color: #1e1e1e;
+        border-color: #333;
+    }
+
+    .tag {
+        background-color: #263238;
+        color: #81c784;
+    }
+}
+
+/* Loading spinner */
+.spinner {
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid var(--primary);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Drag and drop zone */
+.drop-zone {
+    border: 2px dashed #ccc;
+    border-radius: 0.5rem;
+    padding: 2rem;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.drop-zone.dragover {
+    border-color: var(--primary);
+    background-color: rgba(44, 85, 48, 0.1);
+}
+
+/* JSON Preview */
+.json-preview {
+    background-color: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.875rem;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+/* sempre centra tots els modals amb .fixed i z-50, evitant scroll del pare */
+.modal-center {
+    position: fixed !important;
+    inset: 0 !important;
+    overflow-y: auto;
+}
+
+@media (prefers-color-scheme: dark) {
+    .json-preview {
+        background-color: #263238;
+        border-color: #37474f;
+        color: #aed581;
+    }
+}
+
+/* ─── Controls de formulari ────────────────────────────────── */
+input, select, textarea{
+    color:#1f2937;                 /* mode clar: gray-800          */
+}
+::placeholder{
+    color:#9ca3af;                 /* gray-400                     */
+    opacity:1;
+}
+
+/* ─── DARK MODE ────────────────────────────────────────────── */
+@media (prefers-color-scheme: dark){
+    input, select, textarea{
+        background-color:#4b5f7b;  /* gray-800 (fons)              */
+        color:#d1d5db;             /* gray-300  ← més suau que blanc */
+        border-color:#284577;      /* gray-700 (vora)              */
+    }
+    ::placeholder{
+        color:#466497;             /* gray-400 (una mica més clar) */
+    }
+    /* Etiquetes & texts petits */
+    label,
+    .text-xs,
+    .text-sm{
+        color:#e5e7eb;             /* gray-200: clar però no blanc */
+    }
+}
