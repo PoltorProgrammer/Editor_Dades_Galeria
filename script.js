@@ -106,7 +106,7 @@ async function loadInitialData() {
 
 // Carrega automàtica del JSON
 async function loadAutomaticJSON() {
-    const jsonPath = './dades/plantes.json';
+    const jsonPath = './plantes.json';
     
     console.log('Intentant carregar JSON des de:', jsonPath);
     
