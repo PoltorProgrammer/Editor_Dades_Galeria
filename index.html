@@ -5,8 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Galeria Botànica UAB</title>
     
-    <!-- Tailwind CSS -->
+    <!-- Tailwind CSS - Només per desenvolupament local -->
+    <!-- Per producció, usar: npm install tailwindcss i configurar build -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Suprimir avís de desenvolupament a GitHub Pages
+        if (window.location.hostname.includes('github.io')) {
+            console.info('🌐 Aplicació en producció - Considera instal·lar Tailwind localment per optimitzar');
+        }
+    </script>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -30,34 +37,57 @@
                     </div>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <!-- BOTÓ NOVA PLANTA -->
-                    <button onclick="openPlantModal()" 
-                            class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition font-semibold">
-                        <i class="fas fa-plus mr-2"></i>Nova Planta
-                    </button>
-
-                    <!-- BOTONS PER AL JSON -->
+                    <!-- File Input (hidden) -->
                     <input type="file" id="jsonFileInput" accept=".json,application/json" class="hidden">
 
-                    <button
-                    onclick="document.getElementById('jsonFileInput').click()"
-                    class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition">
-                    <i class="fas fa-file-upload mr-2"></i>Importar JSON
+                    <!-- Import JSON Button -->
+                    <button onclick="document.getElementById('jsonFileInput').click()"
+                            class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-2">
+                        <i class="fas fa-file-upload"></i>
+                        <span class="hidden sm:inline">Importar JSON</span>
                     </button>
 
+                    <!-- File System API Button (hidden by default) -->
                     <button id="openJsonFS"
-                    class="hidden bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition">
-                    <i class="fas fa-folder-open mr-2"></i>Obrir JSON (FS)
+                            class="hidden bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-2">
+                        <i class="fas fa-folder-open"></i>
+                        <span class="hidden sm:inline">Obrir JSON (FS)</span>
                     </button>
-                    <!-- Afegir aquest botó al header, just abans del botó "Nova Planta" -->
-                     <button onclick="exportForAutoLoad()" 
-                            class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition">
-                        <i class="fas fa-sync-alt mr-2"></i>Actualitzar local
+
+                    <!-- Export/Update Button -->
+                    <button onclick="exportForAutoLoad()" 
+                            class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-2">
+                        <i class="fas fa-download"></i>
+                        <span class="hidden sm:inline">Actualitzar local</span>
+                    </button>
+
+                    <!-- New Plant Button -->
+                    <button onclick="openPlantModal()" 
+                            class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-all duration-200 font-semibold flex items-center gap-2">
+                        <i class="fas fa-plus"></i>
+                        <span class="hidden sm:inline">Nova Planta</span>
                     </button>
                 </div>
             </div>
         </div>
     </header>
+
+    <!-- Environment Info Banner (shown conditionally) -->
+    <div id="environmentBanner" class="hidden bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-400 p-4">
+        <div class="container mx-auto">
+            <div class="flex items-center">
+                <i class="fas fa-info-circle text-blue-400 mr-3"></i>
+                <div class="text-sm">
+                    <p class="font-medium text-blue-800 dark:text-blue-200" id="bannerTitle"></p>
+                    <p class="text-blue-600 dark:text-blue-300" id="bannerMessage"></p>
+                </div>
+                <button onclick="this.parentElement.parentElement.parentElement.classList.add('hidden')" 
+                        class="ml-auto text-blue-400 hover:text-blue-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- Search and Filters -->
     <div class="container mx-auto px-4 py-6">
@@ -67,13 +97,13 @@
                     <div class="relative">
                         <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                         <input type="text" id="searchInput" placeholder="Cercar per nom comú, científic o família..." 
-                               class="w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                               class="w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200">
                     </div>
                 </div>
-                <select id="filterFamily" class="px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500">
+                <select id="filterFamily" class="px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 transition-all duration-200">
                     <option value="">Totes les famílies</option>
                 </select>
-                <select id="filterType" class="px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500">
+                <select id="filterType" class="px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 transition-all duration-200">
                     <option value="">Tots els tipus</option>
                     <option value="arbre">Arbre</option>
                     <option value="arbust">Arbust</option>
@@ -100,7 +130,7 @@
         <div id="emptyState" class="hidden text-center py-12">
             <i class="fas fa-seedling text-6xl text-gray-300 mb-4"></i>
             <p class="text-xl text-gray-500">No s'han trobat plantes</p>
-            <p class="text-gray-400 mt-2">Prova amb uns altres criteris de cerca</p>
+            <p class="text-gray-400 mt-2">Prova amb uns altres criteris de cerca o importa un fitxer JSON</p>
         </div>
     </div>
 
@@ -112,7 +142,7 @@
                 <!-- Modal Header -->
                 <div class="gradient-header text-white px-6 py-4 flex justify-between items-center">
                     <h2 id="modalTitle" class="text-2xl font-bold">Nova Planta</h2>
-                    <button onclick="closePlantModal()" class="text-white/80 hover:text-white text-2xl">
+                    <button onclick="closePlantModal()" class="text-white/80 hover:text-white text-2xl transition-colors">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
@@ -132,24 +162,24 @@
                                         <div>
                                             <label class="block text-sm font-medium mb-1">Nom comú *</label>
                                             <input type="text" name="nom_comu" required
-                                                   class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500">
+                                                   class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 transition-all duration-200">
                                         </div>
                                         <div>
                                             <label class="block text-sm font-medium mb-1">Nom científic *</label>
                                             <input type="text" name="nom_cientific" required
-                                                   class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500">
+                                                   class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 transition-all duration-200">
                                             <p class="text-xs text-gray-500 mt-1">Format binomial (ex: Acer campestre)</p>
                                         </div>
                                         <div class="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label class="block text-sm font-medium mb-1">Família</label>
                                                 <input type="text" name="familia" list="familyList"
-                                                       class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500">
+                                                       class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 transition-all duration-200">
                                                 <datalist id="familyList"></datalist>
                                             </div>
                                             <div>
                                                 <label class="block text-sm font-medium mb-1">Tipus</label>
-                                                <select name="tipus" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500">
+                                                <select name="tipus" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 transition-all duration-200">
                                                     <option value="">Selecciona...</option>
                                                     <option value="arbre">Arbre</option>
                                                     <option value="arbust">Arbust</option>
@@ -167,7 +197,7 @@
                                         <i class="fas fa-tree mr-2"></i>Hàbitat
                                     </h3>
                                     <div class="space-y-2">
-                                        <select id="habitatSelect" class="w-full px-3 py-2 border rounded-lg">
+                                        <select id="habitatSelect" class="w-full px-3 py-2 border rounded-lg transition-all duration-200">
                                             <option value="">Selecciona hàbitat...</option>
                                             <option value="bosc_mediterrani">Bosc mediterrani</option>
                                             <option value="zones_enjardinades">Zones enjardinades</option>
@@ -185,7 +215,7 @@
                                         <input type="text" id="habitatClarification" class="w-full px-3 py-2 border rounded-lg" 
                                                placeholder="Aclariment (opcional)">
                                         <button type="button" onclick="addHabitat()" 
-                                                class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">
+                                                class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-all duration-200">
                                             <i class="fas fa-plus mr-2"></i>Afegir hàbitat
                                         </button>
                                         <div id="habitatTags" class="flex flex-wrap gap-2 mt-2"></div>
@@ -272,7 +302,7 @@
                                         <input type="text" id="colorClarification" class="w-full px-3 py-2 border rounded-lg" 
                                                placeholder="Aclariment (opcional)">
                                         <button type="button" onclick="addColor()" 
-                                                class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">
+                                                class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-all duration-200">
                                             <i class="fas fa-plus mr-2"></i>Afegir color
                                         </button>
                                         <div id="colorTags" class="flex flex-wrap gap-2 mt-2"></div>
@@ -301,7 +331,7 @@
                                         <input type="text" id="usosClarification" class="w-full px-3 py-2 border rounded-lg" 
                                                placeholder="Aclariment (opcional)">
                                         <button type="button" onclick="addUso()" 
-                                                class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">
+                                                class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-all duration-200">
                                             <i class="fas fa-plus mr-2"></i>Afegir ús
                                         </button>
                                         <div id="usosTags" class="flex flex-wrap gap-2 mt-2"></div>
@@ -324,12 +354,12 @@
                                         <i class="fas fa-images mr-2"></i>Imatges
                                     </h3>
 
-                                    <!-- Resum abans del dropZone -->
+                                    <!-- Images Summary -->
                                     <div id="imagesSummary" class="mb-4 p-3 bg-gray-100 dark:bg-gray-600 rounded-lg">
                                         <div class="flex justify-between items-center">
                                             <span class="font-medium">Imatges de la planta:</span>
                                             <button type="button" onclick="refreshImages()" 
-                                                    class="text-blue-600 hover:text-blue-700 text-sm">
+                                                    class="text-blue-600 hover:text-blue-700 text-sm transition-colors">
                                                 <i class="fas fa-refresh mr-1"></i>Actualitzar
                                             </button>
                                         </div>
@@ -339,17 +369,12 @@
                                     </div>
 
                                     <div id="dropZone" class="drop-zone">
-                                        <!-- Pujar imatges (una o més) -->
-                                        <input type="file"
-                                            id="imageInput"
-                                            multiple
-                                            accept="image/*"
-                                            class="hidden">
-
-                                        <button type="button"
-                                                onclick="document.getElementById('imageInput').click()"
-                                                class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg mt-2">
-                                            <i class="fas fa-image mr-2"></i>Carregar imatge
+                                        <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
+                                        <p class="text-gray-600 mb-2">Arrossega imatges aquí o fes clic per seleccionar</p>
+                                        <input type="file" id="imageInput" multiple accept="image/*" class="hidden">
+                                        <button type="button" onclick="document.getElementById('imageInput').click()"
+                                                class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-all duration-200">
+                                            <i class="fas fa-image mr-2"></i>Carregar imatges
                                         </button>
                                     </div>
 
@@ -361,9 +386,9 @@
                                     <h3 class="font-bold text-lg mb-4 text-green-700 dark:text-green-400">
                                         <i class="fas fa-map-marker-alt mr-2"></i>Ubicacions
                                     </h3>
-                                    <div id="map" style="height: 300px; border-radius: 0.5rem;"></div>
-                                    <p class="text-sm text-gray-500 mt-2">Fes clic al mapa per afegir ubicacions</p>
-                                    <div id="coordinatesList" class="mt-2 space-y-1"></div>
+                                    <div id="map" style="height: 300px; border-radius: 0.5rem;" class="mb-2"></div>
+                                    <p class="text-sm text-gray-500 mb-2">Fes clic al mapa per afegir ubicacions</p>
+                                    <div id="coordinatesList" class="space-y-1"></div>
                                 </div>
                             </div>
                         </div>
@@ -378,7 +403,7 @@
                                     <input type="url" class="flex-1 px-3 py-2 border rounded-lg" 
                                            placeholder="https://exemple.com/font">
                                     <button type="button" onclick="addFont(this)" 
-                                            class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">
+                                            class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-all duration-200">
                                         <i class="fas fa-plus"></i>
                                     </button>
                                 </div>
@@ -392,7 +417,7 @@
                                     <i class="fas fa-code mr-2"></i>Previsualització JSON
                                 </h3>
                                 <button type="button" onclick="toggleJSONPreview()" 
-                                        class="text-sm text-blue-600 hover:text-blue-700">
+                                        class="text-sm text-blue-600 hover:text-blue-700 transition-colors">
                                     <i class="fas fa-eye mr-1"></i>Mostrar/Ocultar
                                 </button>
                             </div>
@@ -404,21 +429,21 @@
                 <!-- Modal Footer -->
                 <div class="border-t px-6 py-4 flex justify-between items-center bg-gray-50 dark:bg-gray-700">
                     <button type="button" onclick="closePlantModal()" 
-                            class="px-4 py-2 text-gray-700 hover:text-gray-900">
+                            class="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors">
                         Cancel·lar
                     </button>
                     <div class="flex gap-2">
                         <button type="button" onclick="savePlant(true)" 
-                                class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">
+                                class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-all duration-200">
                             <i class="fas fa-save mr-2"></i>Desar esborrany
                         </button>
                         <button type="button" onclick="savePlant()" 
-                                class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold">
+                                class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold transition-all duration-200">
                             <i class="fas fa-check mr-2"></i>Desar planta
                         </button>
                         <button type="button" onclick="exportImageRenameList()" 
-                                class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg">
-                            <i class="fas fa-download mr-2"></i>Exportar canvis d'imatges
+                                class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition-all duration-200">
+                            <i class="fas fa-download mr-2"></i>Exportar canvis
                         </button>
                     </div>
                 </div>
@@ -431,11 +456,7 @@
 
     <!-- Delete Confirmation Modal -->
     <div id="deleteModal" class="hidden fixed inset-0 z-50">
-        <!-- backdrop: z-40 (rep els clics fora del diàleg) -->
-        <div class="modal-backdrop fixed inset-0 z-40"
-            onclick="closeDeleteModal()"></div>
-
-        <!-- contenidor del diàleg: z-50 (per sobre del backdrop) -->
+        <div class="modal-backdrop fixed inset-0 z-40" onclick="closeDeleteModal()"></div>
         <div class="flex items-center justify-center min-h-screen p-4 relative z-50">
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6">
                 <div class="text-center">
@@ -447,13 +468,14 @@
 
                     <div class="flex justify-center gap-4">
                         <button onclick="closeDeleteModal()"
-                                class="px-6 py-2 rounded-lg
-                                    bg-gray-200  text-gray-800  hover:bg-gray-300
-                                    dark:bg-gray-600 dark:text-gray-100 dark:hover:bg-gray-500">
+                                class="px-6 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300 
+                                       dark:bg-gray-600 dark:text-gray-100 dark:hover:bg-gray-500 
+                                       transition-all duration-200">
                             Cancel·lar
                         </button>
                         <button onclick="confirmDelete()"
-                                class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold">
+                                class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold 
+                                       transition-all duration-200">
                             Eliminar
                         </button>
                     </div>
@@ -462,10 +484,35 @@
         </div>
     </div>
 
-    <!-- Leaflet JS -->
+    <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
-    <!-- Application JavaScript -->
     <script src="script.js"></script>
+    
+    <!-- Environment detection script -->
+    <script>
+        // Show environment-specific guidance
+        document.addEventListener('DOMContentLoaded', function() {
+            const isGitHubPages = window.location.hostname.includes('github.io');
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const isFileProtocol = window.location.protocol === 'file:';
+            
+            const banner = document.getElementById('environmentBanner');
+            const title = document.getElementById('bannerTitle');
+            const message = document.getElementById('bannerMessage');
+            
+            if (isGitHubPages) {
+                title.textContent = '🌐 Mode GitHub Pages detectat';
+                message.textContent = 'Usa "Importar JSON" per carregar dades i "Actualitzar local" per desar canvis.';
+                banner.classList.remove('hidden');
+            } else if (isFileProtocol) {
+                banner.className = 'bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-4';
+                title.textContent = '⚠️ Mode fitxer local detectat';
+                message.textContent = 'Per millor funcionalitat, executa: python -m http.server 8000';
+                banner.classList.remove('hidden');
+                
+                setTimeout(() => banner.classList.add('hidden'), 10000);
+            }
+        });
+    </script>
 </body>
 </html>
