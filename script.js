@@ -847,3 +847,534 @@ function updateImagePreview() {
                 <div class="absolute top-1 left-1">
                     <span class="bg-blue-500 text-white text-xs px-1 py-0.5 rounded">
                         <i class="fas fa-server"></i>
+                    </span>
+                </div>
+            ` : `
+                <!-- Indicador d'imatge nova -->
+                <div class="absolute top-1 left-1">
+                    <span class="bg-green-500 text-white text-xs px-1 py-0.5 rounded">
+                        <i class="fas fa-plus"></i>
+                    </span>
+                </div>
+            `}
+
+            <!-- overlay visible en hover -->
+            <div class="absolute inset-0 bg-black/50 opacity-0
+                        group-hover:opacity-100 transition-opacity
+                        rounded flex flex-col items-center justify-center gap-1 p-1">
+
+                <!-- selector de tipus -->
+                <select onchange="updateImageType(${index}, this.value)"
+                        class="bg-gray-200 dark:bg-gray-700
+                            text-gray-800 dark:text-gray-100
+                            border dark:border-gray-600
+                            text-xs px-1 py-0.5 rounded w-full">
+
+                    ${CATS.map(c =>
+                        `<option value="${c}" ${img.type === c ? 'selected' : ''}>
+                            ${c[0].toUpperCase() + c.slice(1)}
+                        </option>`).join('')}
+                </select>
+
+                <!-- botons d'acció -->
+                <div class="flex gap-1 w-full">
+                    <!-- veure a mida completa -->
+                    <button onclick="viewFullImage('${img.url}')"
+                            class="flex-1 bg-blue-500 hover:bg-blue-600 text-white text-xs px-1 py-0.5 rounded">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    
+                    <!-- eliminar -->
+                    <button onclick="removeImage(${index})"
+                            class="flex-1 bg-red-500 hover:bg-red-600 text-white text-xs px-1 py-0.5 rounded">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+
+                ${img.server ? `
+                    <div class="text-white text-xs text-center mt-1">
+                        Al servidor
+                    </div>
+                ` : `
+                    <div class="text-white text-xs text-center mt-1">
+                        Nova imatge
+                    </div>
+                `}
+            </div>
+        </div>
+    `).join('');
+    updateImagesCount();
+}
+
+function updateImageType(index, type) {
+   currentImages[index].type = type;
+   unsavedChanges = true;
+   updateJSONPreview();
+}
+
+function removeImage(index) {
+   const img = currentImages[index];
+
+   // Confirmar eliminació d'imatges del servidor
+   if (img.server) {
+       if (!confirm(`Vols eliminar aquesta imatge del servidor?\n\nTipus: ${img.type}\nNom: ${img.name}`)) {
+           return;
+       }
+       
+       // Afegir a la llista d'eliminació
+       imagesToDelete.push(img.name);
+       showToast('Imatge marcada per eliminar', 'info');
+   }
+
+   currentImages.splice(index, 1);
+   updateImagePreview();
+   unsavedChanges = true;
+   updateJSONPreview();
+}
+
+// Carrega les imatges que ja existeixen per a l'espècie
+async function loadExistingImages(nomCientific) {
+   const formatted = formatScientificName(nomCientific);
+   
+   // Reset current images to avoid duplicates
+   currentImages = currentImages.filter(img => !img.server);
+   
+   const CATEGORIES = ['flor','fulla','fruit','tija','altres','habit'];
+   const MAX_BY_CAT = 20;
+   let loadedCount = 0;
+   let totalTried = 0;
+
+   // Crear un array de promeses per carregar totes les imatges en paral·lel
+   const loadPromises = [];
+
+   for (const cat of CATEGORIES) {
+       for (let i = 0; i < MAX_BY_CAT; i++) {
+           const paddedNum = String(i).padStart(2,'0');
+           
+           // Prova amb .jpg
+           loadPromises.push(tryLoadImage(`./assets/imatges/${formatted}_${paddedNum}_${cat}.jpg`, cat, `${formatted}_${paddedNum}_${cat}.jpg`));
+
+           // Prova amb .png
+           loadPromises.push(tryLoadImage(`./assets/imatges/${formatted}_${paddedNum}_${cat}.png`, cat, `${formatted}_${paddedNum}_${cat}.png`));
+       }
+   }
+
+   // Espera que totes les imatges es provin
+   await Promise.all(loadPromises);
+   
+   updateImagePreview();
+   
+   if (loadedCount > 0) {
+       showToast(`Carregades ${loadedCount} imatges existents`, 'success');
+   } else if (totalTried > 0) {
+       showToast('No s\'han trobat imatges existents per aquesta planta', 'info');
+   }
+   
+   function tryLoadImage(url, type, name) {
+       return new Promise((resolve) => {
+           totalTried++;
+           const img = new Image();
+           
+           img.onload = () => {
+               currentImages.push({
+                   url,
+                   type,
+                   originalType: type,
+                   server: true,
+                   name
+               });
+               loadedCount++;
+               resolve(true);
+           };
+           
+           img.onerror = () => {
+               resolve(false);
+           };
+           
+           // Timeout per evitar que es quedi penjat
+           setTimeout(() => {
+               resolve(false);
+           }, 1000);
+           
+           img.src = url;
+       });
+   }
+}
+
+// Save plant
+async function savePlant(draft = false) {
+   const form = document.getElementById('plantForm');
+   const formData = new FormData(form);
+   
+   // Validate required fields
+   if (!draft && (!formData.get('nom_comu') || !formData.get('nom_cientific'))) {
+       showToast('Els camps nom comú i nom científic són obligatoris', 'error');
+       return;
+   }
+   
+   // Build plant object
+   const plant = {
+       nom_comu: formData.get('nom_comu'),
+       nom_cientific: formData.get('nom_cientific'),
+       familia: formData.get('familia'),
+       tipus: formData.get('tipus'),
+       descripcio: formData.get('descripcio'),
+       caracteristiques: {},
+       habitat: [],
+       colors: [],
+       usos: [],
+       coordenades: [],
+       fonts: []
+   };
+   
+   // Generate ID from nom_comu
+   plant.id = plant.nom_comu.toLowerCase()
+       .normalize('NFD')
+       .replace(/[\u0300-\u036f]/g, '')
+       .replace(/\s+/g, '_');
+   
+   // Floracio
+   const selectedSeasons = Array.from(document.querySelectorAll('input[name="floracio_season"]:checked'))
+       .map(cb => cb.value);
+   const floracioClar = document.getElementById('floracioClarification').value;
+   if (selectedSeasons.length > 0) {
+       plant.caracteristiques.floracio = selectedSeasons.join(', ');
+       if (floracioClar) {
+           plant.caracteristiques.floracio += ` (${floracioClar})`;
+       }
+   }
+   
+   // Other characteristics
+   plant.caracteristiques.fullatge = formData.get('fullatge');
+   plant.caracteristiques.alcada = formData.get('alcada');
+   plant.caracteristiques.altres_caracteristiques_rellevants = formData.get('altres_caracteristiques');
+   
+   // Collect tags
+   ['habitat', 'colors', 'usos'].forEach(type => {
+       const tags = document.querySelectorAll(`#${type}Tags .tag`);
+       plant[type] = Array.from(tags).map(tag => tag.dataset.value);
+   });
+   
+   // Collect coordinates
+   plant.coordenades = markers.map(marker => {
+       const latlng = marker.getLatLng();
+       return { lat: latlng.lat, lng: latlng.lng };
+   });
+   
+   // Collect fonts
+   const fontInputs = document.querySelectorAll('#fontsContainer input[type="url"]');
+   plant.fonts = Array.from(fontInputs)
+       .map(input => input.value)
+       .filter(url => url);
+
+   // Guarda informació de les imatges al JSON
+   plant.imatges = currentImages.map(img => ({
+       type: img.type,
+       nom: img.name || `${formatScientificName(plant.nom_cientific)}_${String(currentImages.indexOf(img)).padStart(2, '0')}_${img.type}.jpg`
+   }));
+       
+   // Desa la planta (crear o actualitzar)
+   try {
+       if (currentPlantId) {
+           const idx = plantsData.findIndex(p => p.id === currentPlantId);
+           if (idx !== -1) plantsData[idx] = plant;
+       } else {
+           plantsData.push(plant);
+       }
+
+       // Sincronitza imatges pujades / esborrades
+       await syncImagesWithServer(plant.nom_cientific);
+
+       // Actualitza estat i interfície
+       unsavedChanges = false;
+       await saveBackToDisk();
+       await updateLocalJSON();
+       closePlantModal();
+       displayPlants(plantsData);
+       updateFilters();
+       showToast(
+           draft ? 'Esborrany desat' : 'Planta desada correctament',
+           'success'
+       );
+
+   } catch (error) {
+       console.error(error);
+       showToast('Error desant la planta', 'error');
+   }
+}
+
+// Upload images
+async function uploadImages(nomCientific, list) {
+   return;
+}
+
+async function syncImagesWithServer(nomCientific) {
+   // En mode local, només actualitzem la informació de les imatges al JSON
+   // No fem cap crida al servidor
+   
+   // Reseteja la cua d'eliminacions ja que no les podem processar
+   imagesToDelete = [];
+   
+   // Si hi ha imatges noves, avisa que s'han de copiar manualment
+   const newImages = currentImages.filter(img => !img.server);
+   if (newImages.length > 0) {
+       showToast(`${newImages.length} imatges noves. Copia-les manualment a assets/imatges/`, 'info');
+   }
+}
+
+// View plant details
+function viewPlantDetails(plantId) {
+   const plant = plantsData.find(p => p.id === plantId);
+   if (!plant) return;
+   
+   // For now, just open edit mode
+   // In production, could show a read-only view
+   editPlant(plantId);
+}
+
+// Edit plant
+function editPlant(plantId) {
+   openPlantModal(plantId);
+}
+
+// Delete plant
+function deletePlant(plantId) {
+   plantToDelete = plantId;
+   document.getElementById('deleteModal').classList.remove('hidden');
+}
+
+function closeDeleteModal() {
+   document.getElementById('deleteModal').classList.add('hidden');
+   plantToDelete = null;
+}
+
+// Elimina la planta seleccionada i actualitza el fitxer
+async function confirmDelete() {
+   if (!plantToDelete) return;
+
+   try {
+       /* 1. Treu la planta de l'array en memòria */
+       plantsData = plantsData.filter(p => p.id !== plantToDelete);
+
+       /* 2. Desa el catàleg actualitzat al mateix fitxer (File System Access) */
+       await saveBackToDisk();
+       await updateLocalJSON();
+
+       /* 3. Actualitza la graella i els filtres a la UI */
+       displayPlants(plantsData);
+       updateFilters();
+
+       /* 4. Feedback a l'usuari i neteja d'estat */
+       showToast('Planta eliminada correctament', 'success');
+       closeDeleteModal();
+       plantToDelete = null;
+
+   } catch (error) {
+       console.error(error);
+       showToast('Error eliminant la planta', 'error');
+   }
+}
+
+// JSON Preview
+function updateJSONPreview() {
+   const preview = document.getElementById('jsonPreview');
+   const form = document.getElementById('plantForm');
+   const formData = new FormData(form);
+   
+   // Build preview object
+   const plant = {
+       id: formData.get('nom_comu') ? 
+           formData.get('nom_comu').toLowerCase()
+               .normalize('NFD')
+               .replace(/[\u0300-\u036f]/g, '')
+               .replace(/\s+/g, '_') : '',
+       nom_comu: formData.get('nom_comu') || '',
+       nom_cientific: formData.get('nom_cientific') || '',
+       familia: formData.get('familia') || '',
+       tipus: formData.get('tipus') || '',
+       habitat: Array.from(document.querySelectorAll('#habitatTags .tag'))
+           .map(tag => tag.dataset.value),
+       descripcio: formData.get('descripcio') || '',
+       caracteristiques: {
+           floracio: buildFloracioString(),
+           fullatge: formData.get('fullatge') || '',
+           alcada: formData.get('alcada') || '',
+           altres_caracteristiques_rellevants: formData.get('altres_caracteristiques') || ''
+       },
+       colors: Array.from(document.querySelectorAll('#colorTags .tag'))
+           .map(tag => tag.dataset.value),
+       usos: Array.from(document.querySelectorAll('#usosTags .tag'))
+           .map(tag => tag.dataset.value),
+       coordenades: markers.map(marker => {
+           const latlng = marker.getLatLng();
+           return { lat: latlng.lat, lng: latlng.lng };
+       }),
+       fonts: Array.from(document.querySelectorAll('#fontsContainer input[type="url"]'))
+           .map(input => input.value)
+           .filter(url => url)
+   };
+   
+   preview.textContent = JSON.stringify(plant, null, 2);
+}
+
+function buildFloracioString() {
+   const selectedSeasons = Array.from(document.querySelectorAll('input[name="floracio_season"]:checked'))
+       .map(cb => cb.value);
+   const floracioClar = document.getElementById('floracioClarification').value;
+   
+   if (selectedSeasons.length === 0) return '';
+   
+   let result = selectedSeasons.join(', ');
+   if (floracioClar) {
+       result += ` (${floracioClar})`;
+   }
+   return result;
+}
+
+function toggleJSONPreview() {
+   const preview = document.getElementById('jsonPreview');
+   preview.classList.toggle('hidden');
+   if (!preview.classList.contains('hidden')) {
+       updateJSONPreview();
+   }
+}
+
+// Export JSON amb instruccions de còpia
+function exportJSON() {
+   const dataStr = JSON.stringify(plantsData, null, 2);
+   const dataBlob = new Blob([dataStr], { type: 'application/json' });
+   const url = URL.createObjectURL(dataBlob);
+   const link = document.createElement('a');
+   link.href = url;
+   link.download = `plantes-${new Date().toISOString().slice(0,10)}.json`;
+   document.body.appendChild(link);
+   link.click();
+   document.body.removeChild(link);
+   URL.revokeObjectURL(url);
+   
+   showToast('JSON exportat! Copia\'l a editor_dades/dades/plantes.json per a la càrrega automàtica', 'info', 8000);
+}
+
+async function saveBackToDisk() {
+   // Desa al fitxer original (si està obert amb File System API)
+   if (fsHandle) {
+       try {
+           const writable = await fsHandle.createWritable();
+           await writable.write(JSON.stringify(plantsData, null, 2));
+           await writable.close();
+           showToast('Canvis guardats al fitxer original', 'success');
+       } catch (err) {
+           console.error(err);
+           showToast('Error guardant al fitxer original', 'error');
+       }
+   }
+}
+
+function exportImageRenameList() {
+   const renameList = [];
+   
+   currentImages.forEach(img => {
+       if (img.server && img.originalType && img.type !== img.originalType) {
+           renameList.push({
+               old: img.name,
+               new: img.name.replace(`_${img.originalType}`, `_${img.type}`)
+           });
+       }
+   });
+   
+   if (renameList.length > 0) {
+       const text = renameList.map(r => `ren "${r.old}" "${r.new}"`).join('\n');
+       const blob = new Blob([text], { type: 'text/plain' });
+       const url = URL.createObjectURL(blob);
+       const a = document.createElement('a');
+       a.href = url;
+       a.download = 'rename_images.bat';
+       a.click();
+       URL.revokeObjectURL(url);
+       
+       showToast('Descarregat fitxer .bat per renombrar imatges', 'info');
+   }
+}
+
+// Toast notifications
+function showToast(message, type = 'info', duration = 5000) {
+   const container = document.getElementById('toastContainer');
+   const toast = document.createElement('div');
+   toast.className = `toast bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 min-w-[300px] flex items-center gap-3`;
+   
+   const icon = {
+       success: 'fa-check-circle text-green-500',
+       error: 'fa-exclamation-circle text-red-500',
+       info: 'fa-info-circle text-blue-500'
+   }[type] || 'fa-info-circle text-blue-500';
+   
+   toast.innerHTML = `
+       <i class="fas ${icon} text-xl"></i>
+       <span class="flex-1">${message}</span>
+       <button onclick="this.parentElement.remove()" class="text-gray-400 hover:text-gray-600">
+           <i class="fas fa-times"></i>
+       </button>
+   `;
+   
+   container.appendChild(toast);
+   
+   setTimeout(() => {
+       toast.style.opacity = '0';
+       setTimeout(() => toast.remove(), 300);
+   }, duration);
+}
+
+// Loading indicator
+function showLoading(show) {
+   document.getElementById('loadingIndicator').classList.toggle('hidden', !show);
+}
+
+function refreshImages() {
+   const form = document.getElementById('plantForm');
+   const nomCientific = form.nom_cientific.value;
+   
+   if (nomCientific) {
+       loadExistingImages(nomCientific);
+   } else {
+       showToast('Introdueix primer el nom científic', 'warning');
+   }
+}
+
+function updateImagesCount() {
+   const countEl = document.getElementById('imagesCount');
+   if (!countEl) return;
+   
+   const serverImages = currentImages.filter(img => img.server).length;
+   const newImages = currentImages.filter(img => !img.server).length;
+   const toDelete = imagesToDelete.length;
+   
+   let text = '';
+   if (serverImages > 0) text += `${serverImages} al servidor`;
+   if (newImages > 0) text += `${text ? ', ' : ''}${newImages} noves`;
+   if (toDelete > 0) text += `${text ? ', ' : ''}${toDelete} per eliminar`;
+   if (!text) text = 'Cap imatge';
+   
+   countEl.textContent = text;
+}
+
+function viewFullImage(url) {
+   // Crear modal per veure la imatge completa
+   const modal = document.createElement('div');
+   modal.className = 'fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4';
+   modal.onclick = (e) => {
+       if (e.target === modal) modal.remove();
+   };
+   
+   modal.innerHTML = `
+       <div class="relative max-w-4xl max-h-full">
+           <img src="${url}" alt="Imatge completa" 
+                class="max-w-full max-h-full object-contain rounded-lg">
+           <button onclick="this.parentElement.parentElement.remove()"
+                   class="absolute top-2 right-2 bg-white/20 hover:bg-white/30 text-white p-2 rounded-full">
+               <i class="fas fa-times"></i>
+           </button>
+       </div>
+   `;
+   
+   document.body.appendChild(modal);
+}
